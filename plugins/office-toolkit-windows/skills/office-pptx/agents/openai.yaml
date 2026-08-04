@@ -1,0 +1,4 @@
+interface:
+  display_name: "Office PPTX"
+  short_description: "Create and validate PowerPoint decks"
+  default_prompt: "Use $office-pptx to create and validate a PowerPoint deck."
