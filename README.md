@@ -22,4 +22,4 @@ codex.cmd plugin add office-toolkit-windows@office-toolkit-windows
 
 Task 6 will add repeatable setup and smoke verification. These commands perform current local marketplace discovery and installation only.
 
-Current package boundary: no public skills, setup logic, OfficeCLI wrapper, or PDF runtime. See `plugins/office-toolkit-windows/PACKAGE_BOUNDARIES.md` and `plugins/office-toolkit-windows/THIRD_PARTY_NOTICES.md` before redistribution.
+Current package boundary: public Office/PDF skills, the OfficeCLI wrapper, and local PDF runtime are active; repeatable setup remains Task 6. See `plugins/office-toolkit-windows/PACKAGE_BOUNDARIES.md` and `plugins/office-toolkit-windows/THIRD_PARTY_NOTICES.md` before redistribution.

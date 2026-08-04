@@ -1,0 +1,4 @@
+interface:
+  display_name: "PDF Scan to DOCX"
+  short_description: "Checkpoint OCR for scanned PDFs"
+  default_prompt: "Use $pdf-scan-to-docx to convert this scanned PDF into checkpointed Markdown and DOCX."

@@ -14,7 +14,7 @@
   "interface": {
     "displayName": "Office Toolkit Windows",
     "shortDescription": "Private-use Office and PDF toolkit for Windows.",
-    "longDescription": "Foundation package for Windows Office and scanned PDF workflows. Public skills and runtime arrive in later tasks.",
+    "longDescription": "Private-use Windows Office and scanned PDF workflows with local checkpointed PDF processing.",
     "developerName": "Office Toolkit Windows",
     "category": "Productivity",
     "capabilities": [
