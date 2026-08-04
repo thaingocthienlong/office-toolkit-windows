@@ -12,13 +12,13 @@ Do not call `officecli` directly. Do not install tools from network. Do not use 
 
 | Request | Read |
 |---|---|
-| Normal presentation, slide editing, inspection, or validation | [OfficeCLI PPTX](../../assets/vendor/xu-ly-van-phong-cli/references/skills/officecli-pptx/SKILL.md) |
-| Fundraising, investor, seed, Series A/B/C, SAFE, or VC deck | [Pitch deck](../../assets/vendor/xu-ly-van-phong-cli/references/skills/officecli-pitch-deck/SKILL.md) |
-| Morph transition or cross-slide motion | [Morph PPT](../../assets/vendor/xu-ly-van-phong-cli/references/skills/morph-ppt/SKILL.md) |
-| Morph plus a `.glb` model or 3D camera/layout | [Morph 3D](../../assets/vendor/xu-ly-van-phong-cli/references/skills/morph-ppt-3d/SKILL.md) |
-| Bundled visual style selection | [Style library index](../../assets/vendor/xu-ly-van-phong-cli/references/skills/morph-ppt/reference/styles/INDEX.md), then selected style's `style.md` |
+| Normal presentation, slide editing, inspection, or validation | [Normal PPTX](references/normal-pptx.md) |
+| Fundraising, investor, seed, Series A/B/C, SAFE, or VC deck | [Pitch deck](references/pitch-deck.md) |
+| Morph transition or cross-slide motion | [Morph PPT](references/morph-ppt.md) |
+| Morph plus a `.glb` model or 3D camera/layout | [Morph 3D](references/morph-ppt-3d.md) |
+| Bundled visual style selection | [Bundled styles](references/styles.md) |
 
-Read base PPTX reference first when scene reference says inherited. Read only selected variant/style reference after routing; keep reference loading one level deep from this file.
+Read only selected project-owned reference after routing. Vendor files under `assets/vendor/` remain archival sources and are not public runtime instructions.
 
 ## Operating contract
 
