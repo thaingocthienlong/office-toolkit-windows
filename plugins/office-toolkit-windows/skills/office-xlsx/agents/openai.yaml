@@ -1,0 +1,4 @@
+interface:
+  display_name: "Office XLSX"
+  short_description: "Create and validate Excel workbooks"
+  default_prompt: "Use $office-xlsx to create and validate an Excel workbook."
