@@ -1,0 +1,2 @@
+# Task 1 dependency lock: intentionally empty.
+# No OfficeCLI wrapper or PDF runtime is active yet. Task 5 will add verified, pinned Python dependencies.
