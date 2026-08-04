@@ -54,3 +54,19 @@ PASS metadata, paths, active-runtime boundary
 ## Concern
 
 Task 5 must implement the documented shared wrapper contract before live OfficeCLI DOCX smoke execution is possible.
+
+## Fix round 1
+
+Finding: combined NĐ30 + brand requests had a prohibition but no user-facing conflict gate.
+
+Fix: `SKILL.md` now identifies NĐ30 and brand styling as mutually exclusive tracks, explains the conflict, asks the user to choose, and blocks generation until selection.
+
+Command/output:
+
+```text
+python C:\Users\Vien Phuong Nam\.codex\skills\.system\skill-creator\scripts\quick_validate.py plugins\office-toolkit-windows\skills\office-docx
+Skill is valid!
+
+Focused combined-route check
+PASS: conflict text, choose-track instruction, and no-generation gate present
+```

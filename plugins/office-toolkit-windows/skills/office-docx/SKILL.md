@@ -21,7 +21,7 @@ Use OfficeCLI only through shared wrapper `../../scripts/invoke-officecli.ps1`, 
 | Vietnamese công văn, quyết định, tờ trình | [NĐ30](../../assets/vendor/xu-ly-van-phong/standards/nd30.md) and relevant [administrative template](../../assets/vendor/xu-ly-van-phong/templates/docx-hanh-chinh-cong-van.md) |
 | Corporate branding | [brand kits](../../assets/vendor/xu-ly-van-phong/standards/brand_kits/README.md) |
 
-NĐ30 is black/white, Times New Roman, and must not mix with a brand kit. For branded documents, use provided brand assets or choose a preset with user approval; never use `brand_kits/example` for a real deliverable.
+NĐ30 and brand styling are mutually exclusive tracks. If a request asks for both, explain the conflict, ask the user to choose NĐ30 or branded styling, and do not generate until one track is selected. For branded documents, use provided brand assets or choose a preset with user approval; never use `brand_kits/example` for a real deliverable.
 
 ## Delivery gate
 
