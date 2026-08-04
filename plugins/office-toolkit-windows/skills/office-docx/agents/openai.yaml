@@ -1,0 +1,4 @@
+interface:
+  display_name: "Office DOCX"
+  short_description: "Create, edit, and validate Word DOCX files"
+  default_prompt: "Use $office-docx to create and validate a Vietnamese Word document."
