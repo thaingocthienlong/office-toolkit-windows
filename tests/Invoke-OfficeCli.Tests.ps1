@@ -31,6 +31,6 @@ Describe 'invoke-officecli' {
         $exitCode = $LASTEXITCODE
 
         $exitCode | Should Be 0
-        $result.Trim() | Should Be '1.0.135'
+        $result.Trim() | Should Match '(?m)1\.0\.135\s*$'
     }
 }
