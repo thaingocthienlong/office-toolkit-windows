@@ -1,3 +1,5 @@
+import json
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -106,11 +108,14 @@ class PdfPipelineTests(unittest.TestCase):
 
     def test_cleanup_needs_confirmation_and_completed_outputs(self) -> None:
         source = self.workspace / "01.input" / "mau.pdf"
-        source.write_bytes(b"input")
-        (self.workspace / "02.process" / "scratch.txt").write_text("work", encoding="utf-8")
+        make_pdf(source, pages=1)
+        self.assertEqual(run_pipeline("render", self.workspace, source).returncode, 0)
+        ocr = self.workspace / "02.process" / "ocr"
+        ocr.mkdir()
+        (ocr / "page-0001.md").write_text("done", encoding="utf-8")
+        self.assertEqual(run_pipeline("merge", self.workspace).returncode, 0)
+        self.assertEqual(run_pipeline("export", self.workspace).returncode, 0)
         output = self.workspace / "03.output"
-        (output / "mau.md").write_text("done", encoding="utf-8")
-        (output / "mau.docx").write_bytes(b"done")
         keep = self.workspace / "keep.txt"
         keep.write_text("keep", encoding="utf-8")
 
@@ -126,6 +131,186 @@ class PdfPipelineTests(unittest.TestCase):
         self.assertTrue((output / "mau.md").is_file())
         self.assertTrue((output / "mau.docx").is_file())
         self.assertTrue(keep.is_file())
+
+    def test_merge_rejects_a_manifest_stem_that_escapes_output(self) -> None:
+        source = self.workspace / "01.input" / "mau.pdf"
+        make_pdf(source, pages=1)
+        self.assertEqual(run_pipeline("render", self.workspace, source).returncode, 0)
+        ocr = self.workspace / "02.process" / "ocr"
+        ocr.mkdir()
+        (ocr / "page-0001.md").write_text("safe", encoding="utf-8")
+        manifest = self.workspace / "02.process" / "source.json"
+        info = json.loads(manifest.read_text(encoding="utf-8"))
+        info["stem"] = "../escaped"
+        manifest.write_text(json.dumps(info), encoding="utf-8")
+
+        result = run_pipeline("merge", self.workspace)
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("output stem", result.stderr)
+        self.assertFalse((self.workspace / "escaped.md").exists())
+
+    def test_resume_rejects_a_source_pdf_changed_after_render(self) -> None:
+        source = self.workspace / "01.input" / "mau.pdf"
+        make_pdf(source, pages=2)
+        self.assertEqual(run_pipeline("render", self.workspace, source).returncode, 0)
+        replacement = Path(self.temp_dir.name) / "replacement.pdf"
+        make_pdf(replacement, pages=1)
+        replacement.replace(source)
+
+        result = run_pipeline("render", self.workspace, source)
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("source changed", result.stderr)
+        self.assertTrue((self.workspace / "02.process" / "page-0002.png").is_file())
+
+    def test_merge_rejects_a_missing_rendered_page_from_manifest_count(self) -> None:
+        source = self.workspace / "01.input" / "mau.pdf"
+        make_pdf(source, pages=2)
+        self.assertEqual(run_pipeline("render", self.workspace, source).returncode, 0)
+        (self.workspace / "02.process" / "page-0002.png").unlink()
+        ocr = self.workspace / "02.process" / "ocr"
+        ocr.mkdir()
+        (ocr / "page-0001.md").write_text("one", encoding="utf-8")
+
+        result = run_pipeline("merge", self.workspace)
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("rendered page set", result.stderr)
+
+    def test_merge_rejects_an_extra_rendered_page_outside_manifest_count(self) -> None:
+        source = self.workspace / "01.input" / "mau.pdf"
+        make_pdf(source, pages=2)
+        self.assertEqual(run_pipeline("render", self.workspace, source).returncode, 0)
+        process = self.workspace / "02.process"
+        shutil.copyfile(process / "page-0001.png", process / "page-0003.png")
+        ocr = process / "ocr"
+        ocr.mkdir()
+        for number in (1, 2, 3):
+            (ocr / f"page-{number:04d}.md").write_text(str(number), encoding="utf-8")
+
+        result = run_pipeline("merge", self.workspace)
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("rendered page set", result.stderr)
+
+    def test_merge_rejects_a_reparse_rendered_page_entry(self) -> None:
+        source = self.workspace / "01.input" / "mau.pdf"
+        make_pdf(source, pages=1)
+        self.assertEqual(run_pipeline("render", self.workspace, source).returncode, 0)
+        page = self.workspace / "02.process" / "page-0001.png"
+        page.unlink()
+        target = Path(self.temp_dir.name) / "target"
+        target.mkdir()
+        junction = subprocess.run(
+            ["cmd.exe", "/d", "/c", "mklink", "/J", str(page), str(target)],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if junction.returncode != 0:
+            self.skipTest(f"junction unavailable: {junction.stderr}")
+        ocr = self.workspace / "02.process" / "ocr"
+        ocr.mkdir()
+        (ocr / "page-0001.md").write_text("one", encoding="utf-8")
+
+        result = run_pipeline("merge", self.workspace)
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("reparse", result.stderr)
+
+    def test_cleanup_rejects_a_stale_output_pair_not_bound_to_current_job(self) -> None:
+        source = self.workspace / "01.input" / "mau.pdf"
+        make_pdf(source, pages=1)
+        self.assertEqual(run_pipeline("render", self.workspace, source).returncode, 0)
+        output = self.workspace / "03.output"
+        (output / "stale.md").write_text("stale", encoding="utf-8")
+        (output / "stale.docx").write_bytes(b"stale")
+
+        result = run_pipeline("cleanup", self.workspace, "--confirm")
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("current job", result.stderr)
+        self.assertTrue(source.is_file())
+        self.assertTrue((self.workspace / "02.process").is_dir())
+
+    def test_cleanup_rejects_a_changed_source_after_outputs_exist(self) -> None:
+        source = self.workspace / "01.input" / "mau.pdf"
+        make_pdf(source, pages=1)
+        self.assertEqual(run_pipeline("render", self.workspace, source).returncode, 0)
+        ocr = self.workspace / "02.process" / "ocr"
+        ocr.mkdir()
+        (ocr / "page-0001.md").write_text("done", encoding="utf-8")
+        self.assertEqual(run_pipeline("merge", self.workspace).returncode, 0)
+        self.assertEqual(run_pipeline("export", self.workspace).returncode, 0)
+        replacement = Path(self.temp_dir.name) / "replacement.pdf"
+        make_pdf(replacement, pages=2)
+        replacement.replace(source)
+
+        result = run_pipeline("cleanup", self.workspace, "--confirm")
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("source changed", result.stderr)
+        self.assertTrue(source.is_file())
+
+    def test_cleanup_rejects_an_output_changed_after_export(self) -> None:
+        source = self.workspace / "01.input" / "mau.pdf"
+        make_pdf(source, pages=1)
+        self.assertEqual(run_pipeline("render", self.workspace, source).returncode, 0)
+        ocr = self.workspace / "02.process" / "ocr"
+        ocr.mkdir()
+        (ocr / "page-0001.md").write_text("done", encoding="utf-8")
+        self.assertEqual(run_pipeline("merge", self.workspace).returncode, 0)
+        self.assertEqual(run_pipeline("export", self.workspace).returncode, 0)
+        markdown = self.workspace / "03.output" / "mau.md"
+        markdown.write_text("changed", encoding="utf-8")
+
+        result = run_pipeline("cleanup", self.workspace, "--confirm")
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("output changed", result.stderr)
+        self.assertTrue(source.is_file())
+
+    def test_cleanup_rejects_a_docx_changed_after_export(self) -> None:
+        source = self.workspace / "01.input" / "mau.pdf"
+        make_pdf(source, pages=1)
+        self.assertEqual(run_pipeline("render", self.workspace, source).returncode, 0)
+        ocr = self.workspace / "02.process" / "ocr"
+        ocr.mkdir()
+        (ocr / "page-0001.md").write_text("done", encoding="utf-8")
+        self.assertEqual(run_pipeline("merge", self.workspace).returncode, 0)
+        self.assertEqual(run_pipeline("export", self.workspace).returncode, 0)
+        document = self.workspace / "03.output" / "mau.docx"
+        document.write_bytes(b"changed")
+
+        result = run_pipeline("cleanup", self.workspace, "--confirm")
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("output changed", result.stderr)
+        self.assertTrue(source.is_file())
+
+    def test_export_preserves_markdown_headings_lists_and_table(self) -> None:
+        source = self.workspace / "01.input" / "mau.pdf"
+        make_pdf(source, pages=1)
+        self.assertEqual(run_pipeline("render", self.workspace, source).returncode, 0)
+        ocr = self.workspace / "02.process" / "ocr"
+        ocr.mkdir()
+        (ocr / "page-0001.md").write_text(
+            "# Title\n\n## Section\n\n- first\n- second\n\n1. one\n2. two\n\n| Left | Right |\n| --- | --- |\n| A | B |",
+            encoding="utf-8",
+        )
+        self.assertEqual(run_pipeline("merge", self.workspace).returncode, 0)
+
+        exported = run_pipeline("export", self.workspace)
+
+        self.assertEqual(exported.returncode, 0, exported.stderr)
+        document = Document(self.workspace / "03.output" / "mau.docx")
+        paragraph_styles = {paragraph.text: paragraph.style.name for paragraph in document.paragraphs}
+        self.assertEqual(paragraph_styles["Title"], "Heading 1")
+        self.assertEqual(paragraph_styles["Section"], "Heading 2")
+        self.assertEqual(paragraph_styles["first"], "List Bullet")
+        self.assertEqual(paragraph_styles["one"], "List Number")
+        self.assertEqual([[cell.text for cell in row.cells] for row in document.tables[0].rows], [["Left", "Right"], ["A", "B"]])
 
     def test_cleanup_rejects_a_reparse_process_target(self) -> None:
         outside = Path(self.temp_dir.name) / "outside"
