@@ -13,6 +13,9 @@ Implemented from base `104a59c`.
   - `PyMuPDF==1.27.2.3`
   - `Pillow==12.2.0`
   - `python-docx==1.2.0`
+  - `pypandoc-binary==1.17`
+  - `opencv-python==5.0.0.93`
+  - `openpyxl==3.1.5`
 - Added behavior-first Python pipeline tests and Pester wrapper-resolution tests.
 - Corrected the root/plugin descriptions so they no longer claim the runtime is absent. No `setup.ps1` was added; Task 6 owns setup.
 
@@ -22,7 +25,7 @@ Implemented from base `104a59c`.
 
 Codex OCR remains local and checkpointed: it writes `02.process/ocr/page-####.md`. `merge` requires every rendered page checkpoint in numeric order and creates `03.output/<stem>.md`; `export` creates the matching DOCX. Neither action calls an OCR API or installs dependencies.
 
-Every action rejects missing workspace marker/children, path escape, and symlink/reparse targets. `cleanup` needs `--confirm`, checks for a matching `.md`/`.docx` output pair, recursively rejects reparse entries, and removes only `01.input` and `02.process`.
+Every action rejects missing workspace marker/children, path escape, and symlink/reparse targets. The source manifest binds the PDF hash, page count, Markdown hash, and DOCX hash to one job. `cleanup` needs `--confirm`, verifies those bindings, recursively rejects reparse entries, and removes only `01.input` and `02.process`.
 
 The PowerShell wrapper selects a PATH `officecli` only when `--version` is at least `1.0.135`; otherwise it verifies the bundled executable against SHA-256 `937DB176B585E874AA5BFF48D536BCE78037665CD862B5DEEFE56E79977E6588`. It invokes the resolved command with an argument array, preserves native stdout/stderr, and exits with the native exit code.
 
@@ -93,3 +96,37 @@ Vendor source trees were not edited. Raw PDF assets remain workspace input only;
 ## Concern
 
 No concern within Task 5 scope. Task 6 still owns repeatable environment setup, full plugin/package validation, and end-to-end release smoke testing.
+
+## Review fix round 1
+
+Independent review of `104a59c..31e750f` found seven gaps: unsafe manifest stems, stale-output cleanup, source mixing on resume, non-authoritative rendered page discovery, three missing direct dependency pins, lossy Markdown export, and unchecked reparse page entries.
+
+New tests reproduced all gaps. The final cleanup mutation test was RED before the manifest/output fix:
+
+```text
+python -m unittest tests.test_pdf_pipeline.PdfPipelineTests.test_cleanup_rejects_a_docx_changed_after_export
+FAILED (failures=1)
+AssertionError: 0 == 0
+```
+
+The minimal fix validates direct-child names and reparse entries, records source/page/output hashes atomically, derives pages from the manifest count, and preserves block-level headings, lists, and tables in DOCX.
+
+```text
+python -m unittest tests.test_pdf_pipeline
+Ran 16 tests in 20.015s
+OK
+
+Invoke-Pester -Script .\tests\Invoke-OfficeCli.Tests.ps1 -PassThru
+Passed: 2 Failed: 0 Skipped: 0
+
+quick_validate.py (all four skills)
+Skill is valid! (4/4)
+
+validate_plugin.py plugins\office-toolkit-windows
+Plugin validation passed
+
+git diff --check
+PASS
+```
+
+The added packages were resolved from the package index and their Windows x64 CPython 3.11 wheels were downloaded successfully before pinning.
